@@ -106,13 +106,13 @@ class App {
         try {
             this.categories = await getCategories();
             const options = this.categories.map(c =>
-                `<option value="${c.id}">${c.icon} ${c.name}</option>`
+                `<option value="${c.id}">${c.name}</option>`
             ).join('');
             this.searchCategory.innerHTML = `<option value="">全部分类</option>${options}`;
             this.categoryNav.innerHTML = `
                 <span class="category-item active" data-id="">🏷️ 全部</span>
                 ${this.categories.map(c =>
-                    `<span class="category-item" data-id="${c.id}">${c.icon} ${c.name}</span>`
+                    `<span class="category-item" data-id="${c.id}">${c.name}</span>`
                 ).join('')}
             `;
         } catch (err) {

@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { pool } = require('../config/db');
+const { supabase, supabaseAdmin } = require('../config/db');
 require('dotenv').config();
 const router = express.Router();
 
@@ -16,15 +16,22 @@ router.post('/register', async (req, res) => {
     }
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        await pool.execute(
-            'INSERT INTO users (username, password, nickname, phone, wechat, school) VALUES (?, ?, ?, ?, ?, ?)',
-            [username, hashedPassword, nickname || username, phone || '', wechat || '', school || '']
-        );
+        const { error } = await supabaseAdmin.from('users').insert({
+            username,
+            password: hashedPassword,
+            nickname: nickname || username,
+            phone: phone || '',
+            wechat: wechat || '',
+            school: school || ''
+        });
+        if (error) {
+            if (error.code === '23505' || error.message?.includes('unique')) {
+                return res.status(400).json({ error: '用户名已存在' });
+            }
+            throw error;
+        }
         res.json({ success: true, message: '注册成功' });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ error: '用户名已存在' });
-        }
         console.error(err);
         res.status(500).json({ error: '服务器错误' });
     }
@@ -37,11 +44,15 @@ router.post('/login', async (req, res) => {
         return res.status(400).json({ error: '用户名和密码不能为空' });
     }
     try {
-        const [rows] = await pool.execute('SELECT * FROM users WHERE username = ?', [username]);
-        if (rows.length === 0) {
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username);
+
+        if (error || !users || users.length === 0) {
             return res.status(401).json({ error: '用户不存在或密码错误' });
         }
-        const user = rows[0];
+        const user = users[0];
         const match = await bcrypt.compare(password, user.password);
         if (!match) {
             return res.status(401).json({ error: '用户不存在或密码错误' });

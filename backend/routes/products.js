@@ -1,114 +1,109 @@
 const express = require('express');
-const { pool } = require('../config/db');
+const { supabase, supabaseAdmin, flattenProduct } = require('../config/db');
 const auth = require('../middleware/auth');
 const router = express.Router();
 
 // 获取商品列表
 router.get('/', async (req, res) => {
     const { category_id, keyword, status, page = 1, limit = 20, sort = 'new' } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
 
-    let sql = `
-        SELECT p.*, u.username, u.nickname, u.avatar,
-               c.name as category_name, c.icon as category_icon
-        FROM products p
-        LEFT JOIN users u ON p.user_id = u.id
-        LEFT JOIN categories c ON p.category_id = c.id
-        WHERE p.status = 'on_sale'
-    `;
-    const params = [];
+    try {
+        // 构建基础查询
+        let query = supabase
+            .from('products')
+            .select('*, users(username, nickname, avatar), categories(name, icon)', { count: 'exact' })
+            .eq('status', status || 'on_sale');
 
-    if (category_id) {
-        sql += ' AND p.category_id = ?';
-        params.push(category_id);
-    }
-    if (keyword) {
-        sql += ' AND (p.title LIKE ? OR p.description LIKE ?)';
-        params.push(`%${keyword}%`, `%${keyword}%`);
-    }
-    if (status) {
-        sql += ' AND p.status = ?';
-        params.push(status);
-    }
-
-    // 排序
-    if (sort === 'new') {
-        sql += ' ORDER BY p.created_at DESC';
-    } else if (sort === 'price_asc') {
-        sql += ' ORDER BY p.price ASC';
-    } else if (sort === 'price_desc') {
-        sql += ' ORDER BY p.price DESC';
-    } else if (sort === 'hot') {
-        sql += ' ORDER BY p.view_count DESC';
-    }
-
-    // 获取总数 - 使用 query
-    let countSql = 'SELECT COUNT(*) as total FROM products p WHERE p.status = "on_sale"';
-    const countParams = [];
-
-    if (category_id) {
-        countSql += ' AND p.category_id = ?';
-        countParams.push(category_id);
-    }
-    if (keyword) {
-        countSql += ' AND (p.title LIKE ? OR p.description LIKE ?)';
-        countParams.push(`%${keyword}%`, `%${keyword}%`);
-    }
-    if (status) {
-        countSql += ' AND p.status = ?';
-        countParams.push(status);
-    }
-
-    const [countResult] = await pool.query(countSql, countParams);
-    const total = countResult[0]?.total || 0;
-
-    sql += ' LIMIT ? OFFSET ?';
-    params.push(limitNum, offset);
-
-    const [rows] = await pool.query(sql, params);
-
-    const products = rows.map(p => {
-        const images = p.images ? JSON.parse(p.images) : [];
-        return {
-            ...p,
-            images,
-            cover: images.length > 0 ? images[0] : null
-        };
-    });
-
-    res.json({
-        data: products,
-        pagination: {
-            page: parseInt(page),
-            limit: limitNum,
-            total,
-            totalPages: Math.ceil(total / limitNum)
+        if (category_id) {
+            query = query.eq('category_id', parseInt(category_id));
         }
-    });
+        if (keyword) {
+            query = query.or(`title.ilike.%${keyword}%,description.ilike.%${keyword}%`);
+        }
+
+        // 排序
+        const orderMap = {
+            'new': ['created_at', { ascending: false }],
+            'price_asc': ['price', { ascending: true }],
+            'price_desc': ['price', { ascending: false }],
+            'hot': ['view_count', { ascending: false }]
+        };
+        const [orderCol, orderOpts] = orderMap[sort] || orderMap['new'];
+
+        // 分页
+        query = query.order(orderCol, orderOpts).range(from, to);
+
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+
+        const products = (data || []).map(flattenProduct);
+
+        res.json({
+            data: products,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total: count || 0,
+                totalPages: Math.ceil((count || 0) / limitNum)
+            }
+        });
+    } catch (err) {
+        console.error('商品列表查询失败:', err);
+        res.status(500).json({ error: '服务器错误' });
+    }
+});
+
+// 获取用户发布的商品（必须在 /:id 之前，避免 /user/xxx 被 /:id 拦截）
+router.get('/user/:userId', async (req, res) => {
+    const { status } = req.query;
+    try {
+        let query = supabase
+            .from('products')
+            .select('*, users(username, nickname, avatar), categories(name, icon)')
+            .eq('user_id', req.params.userId)
+            .order('created_at', { ascending: false });
+
+        if (status) {
+            query = query.eq('status', status);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const products = (data || []).map(flattenProduct);
+
+        res.json(products);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: '服务器错误' });
+    }
 });
 
 // 获取商品详情
 router.get('/:id', async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            `SELECT p.*, u.username, u.nickname, u.avatar, u.phone as user_phone, u.wechat as user_wechat,
-                    c.name as category_name, c.icon as category_icon
-             FROM products p
-             LEFT JOIN users u ON p.user_id = u.id
-             LEFT JOIN categories c ON p.category_id = c.id
-             WHERE p.id = ?`,
-            [req.params.id]
-        );
-        if (rows.length === 0) {
+        const { data, error } = await supabase
+            .from('products')
+            .select('*, users(username, nickname, avatar, phone, wechat), categories(name, icon)')
+            .eq('id', req.params.id)
+            .single();
+
+        if (error || !data) {
             return res.status(404).json({ error: '商品不存在' });
         }
-        const product = rows[0];
-        product.images = product.images ? JSON.parse(product.images) : [];
 
-        await pool.query('UPDATE products SET view_count = view_count + 1 WHERE id = ?', [req.params.id]);
+        // 浏览次数 +1
+        await supabaseAdmin
+            .from('products')
+            .update({ view_count: (data.view_count || 0) + 1 })
+            .eq('id', req.params.id);
 
-        res.json(product);
+        res.json(flattenProduct(data));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: '服务器错误' });
@@ -123,12 +118,24 @@ router.post('/', auth, async (req, res) => {
     }
     try {
         const imagesJson = JSON.stringify(images || []);
-        const [result] = await pool.query(
-            `INSERT INTO products (title, description, price, category_id, contact_phone, contact_wechat, images, user_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [title, description, price, category_id || null, contact_phone || '', contact_wechat || '', imagesJson, req.user.id]
-        );
-        res.json({ success: true, id: result.insertId, message: '发布成功' });
+        const { data, error } = await supabaseAdmin
+            .from('products')
+            .insert({
+                title,
+                description,
+                price,
+                category_id: category_id || null,
+                contact_phone: contact_phone || '',
+                contact_wechat: contact_wechat || '',
+                images: imagesJson,
+                user_id: req.user.id,
+                status: 'on_sale'
+            })
+            .select('id')
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, id: data.id, message: '发布成功' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: '服务器错误' });
@@ -142,22 +149,40 @@ router.put('/:id', auth, async (req, res) => {
         return res.status(400).json({ error: '标题和价格不能为空' });
     }
     try {
-        const [check] = await pool.query('SELECT user_id FROM products WHERE id = ?', [req.params.id]);
-        if (check.length === 0) {
+        // 检查权限
+        const { data: check } = await supabase
+            .from('products')
+            .select('user_id')
+            .eq('id', req.params.id)
+            .single();
+
+        if (!check) {
             return res.status(404).json({ error: '商品不存在' });
         }
-        if (check[0].user_id !== req.user.id && req.user.role !== 'admin') {
+        if (check.user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ error: '无权修改此商品' });
         }
 
-        const imagesJson = images ? JSON.stringify(images) : null;
-        await pool.query(
-            `UPDATE products SET
-                title = ?, description = ?, price = ?, category_id = ?,
-                contact_phone = ?, contact_wechat = ?, images = COALESCE(?, images), status = ?
-             WHERE id = ?`,
-            [title, description, price, category_id || null, contact_phone || '', contact_wechat || '', imagesJson, status || 'on_sale', req.params.id]
-        );
+        const updateData = {
+            title,
+            description,
+            price,
+            category_id: category_id || null,
+            contact_phone: contact_phone || '',
+            contact_wechat: contact_wechat || '',
+            status: status || 'on_sale'
+        };
+        // 只在有 images 时更新 images
+        if (images) {
+            updateData.images = JSON.stringify(images);
+        }
+
+        const { error } = await supabaseAdmin
+            .from('products')
+            .update(updateData)
+            .eq('id', req.params.id);
+
+        if (error) throw error;
         res.json({ success: true, message: '更新成功' });
     } catch (err) {
         console.error(err);
@@ -168,38 +193,26 @@ router.put('/:id', auth, async (req, res) => {
 // 删除商品
 router.delete('/:id', auth, async (req, res) => {
     try {
-        const [check] = await pool.query('SELECT user_id FROM products WHERE id = ?', [req.params.id]);
-        if (check.length === 0) {
+        const { data: check } = await supabase
+            .from('products')
+            .select('user_id')
+            .eq('id', req.params.id)
+            .single();
+
+        if (!check) {
             return res.status(404).json({ error: '商品不存在' });
         }
-        if (check[0].user_id !== req.user.id && req.user.role !== 'admin') {
+        if (check.user_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ error: '无权删除此商品' });
         }
-        await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
-        res.json({ success: true, message: '删除成功' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: '服务器错误' });
-    }
-});
 
-// 获取用户发布的商品
-router.get('/user/:userId', async (req, res) => {
-    const { status } = req.query;
-    let sql = 'SELECT * FROM products WHERE user_id = ?';
-    const params = [req.params.userId];
-    if (status) {
-        sql += ' AND status = ?';
-        params.push(status);
-    }
-    sql += ' ORDER BY created_at DESC';
-    try {
-        const [rows] = await pool.query(sql, params);
-        const products = rows.map(p => ({
-            ...p,
-            images: p.images ? JSON.parse(p.images) : []
-        }));
-        res.json(products);
+        const { error } = await supabaseAdmin
+            .from('products')
+            .delete()
+            .eq('id', req.params.id);
+
+        if (error) throw error;
+        res.json({ success: true, message: '删除成功' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: '服务器错误' });

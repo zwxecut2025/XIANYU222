@@ -87,6 +87,19 @@
         var currentUserData = null;
         var currentTab = 'products';
 
+        // 检查 token 和 user 是否都完整
+        var token = getToken();
+        if (!token) {
+            container.innerHTML =
+                '<div style="text-align:center;padding:80px 20px;">' +
+                '<div style="font-size:4rem;">🔐</div>' +
+                '<h3 style="margin-top:16px;">登录状态已失效</h3>' +
+                '<p style="color:#999;margin:8px 0 20px;">请重新登录后查看个人中心</p>' +
+                '<a href="javascript:void(0)" onclick="localStorage.clear();location.href=\'../index/index.html\'" style="display:inline-block;background:#FF6B35;color:#fff;padding:10px 32px;border-radius:8px;text-decoration:none;font-size:1.1rem;">🔑 重新登录</a>' +
+                '</div>';
+            return;
+        }
+
         loadProfile();
 
         // ====== 工具函数 ======
@@ -133,9 +146,18 @@
         }
 
         async function loadProfile() {
+            var failedStep = '';
             try {
+                // 第1步：获取用户信息
+                failedStep = '获取用户信息';
                 currentUserData = await api('/users/me');
+
+                // 第2步：获取我的发布
+                failedStep = '获取我的发布';
                 var products = await api('/products/user/' + currentUserData.id);
+
+                // 第3步：获取我的收藏
+                failedStep = '获取我的收藏';
                 var favorites = await api('/favorites');
 
                 container.innerHTML =
@@ -167,15 +189,26 @@
                 renderTab('products', products, favorites);
 
             } catch (err) {
-                console.error('加载失败:', err);
+                console.error('加载失败 (' + failedStep + '):', err);
+                var errMsg = err.message || '网络异常';
+                var isAuthError = err.status === 401 || err.status === 403 ||
+                    errMsg.indexOf('令牌') >= 0 || errMsg.indexOf('认证') >= 0;
+
                 container.innerHTML =
                     '<div style="text-align:center;padding:60px;">' +
                     '<div style="font-size:3rem;">⚠️</div>' +
                     '<h3>加载失败</h3>' +
-                    '<p style="color:#999;">' + esc(err.message || '网络异常') + '</p>' +
-                    '<p style="margin-top:16px;">' +
-                    '<a href="javascript:location.reload()" style="color:#FF6B35;margin-right:16px;">🔄 重试</a>' +
-                    '<a href="../index/index.html" style="color:#999;">← 返回首页</a></p>' +
+                    '<p style="color:#FF6B35;font-weight:bold;">[' + esc(failedStep) + '] ' + esc(errMsg) + '</p>' +
+                    (isAuthError ?
+                        '<p style="color:#999;margin-top:8px;">登录已过期，请重新登录</p>' +
+                        '<p style="margin-top:12px;">' +
+                        '<a href="javascript:void(0)" onclick="localStorage.clear();location.href=\'../index/index.html\'" style="color:#FF6B35;margin-right:16px;text-decoration:underline;">🔑 重新登录</a>' +
+                        '</p>'
+                        :
+                        '<p style="margin-top:16px;">' +
+                        '<a href="javascript:location.reload()" style="color:#FF6B35;margin-right:16px;">🔄 重试</a>' +
+                        '<a href="../index/index.html" style="color:#999;">← 返回首页</a></p>'
+                    ) +
                     '</div>';
             }
         }

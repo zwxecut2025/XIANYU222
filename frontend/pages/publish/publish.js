@@ -6,8 +6,10 @@ const editId = urlParams.get('id');
 const user = getCurrentUser();
 
 if (!user) {
-    document.body.innerHTML = '<div style="text-align:center;padding:100px 20px;"><div style="font-size:4rem;">🔐</div><h3>请先登录</h3><p style="color:#999;">登录后即可发布商品</p><p style="margin-top:16px;"><a href="../index/index.html" style="display:inline-block;background:var(--primary-color);color:#fff;padding:10px 32px;border-radius:8px;text-decoration:none;">← 返回首页登录</a></p></div>';
-    // 阻止后续代码执行
+    var container = document.querySelector('.publish-container');
+    if (container) {
+        container.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="font-size:4rem;">🔐</div><h3>请先登录</h3><p style="color:#999;">登录后即可发布商品</p><p style="margin-top:16px;"><a href="../index/index.html" style="display:inline-block;background:#FF6B35;color:#fff;padding:10px 32px;border-radius:8px;text-decoration:none;">← 返回首页登录</a></p></div>';
+    }
     throw new Error('NOT_LOGGED_IN');
 }
 
@@ -36,7 +38,7 @@ async function loadCategories() {
     try {
         categories = await getCategories();
         categorySelect.innerHTML = categories.map(c =>
-            `<option value="${c.id}">${c.icon} ${c.name}</option>`
+            `<option value="${c.id}">${c.name}</option>`
         ).join('');
     } catch (err) {
         console.error('加载分类失败', err);
