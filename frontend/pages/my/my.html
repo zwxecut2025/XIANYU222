@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>我的 · 校园二手</title>
+    <link rel="stylesheet" href="../../public/style.css?v=2">
+</head>
+<body>
+    <header class="header-wrapper">
+        <a href="../index/index.html" class="logo">🏫 校园二手</a>
+        <div class="right-panel">
+            <a href="../publish/publish.html" class="nav-link publish-btn">🛍️ 发布闲置</a>
+            <a href="../favorites/favorites.html" class="nav-link">💖 收藏</a>
+            <a href="../my/my.html" class="nav-link" style="color:var(--primary-color);">🥰 我的</a>
+        </div>
+    </header>
+
+    <div class="profile-container" id="profile-container">
+        <div class="loading-state" style="text-align:center;padding:60px;color:var(--text-light);">
+            <div style="font-size:2rem;margin-bottom:12px;">⏳</div>
+            <p>加载中...</p>
+        </div>
+    </div>
+
+    <!-- 编辑资料模态框 -->
+    <div class="modal-mask" id="edit-modal" style="display:none;">
+        <div class="modal-content" style="max-width:500px;">
+            <button class="close-btn" data-close>&times;</button>
+            <h2 class="modal-title">✏️ 编辑资料</h2>
+            <form id="edit-profile-form">
+                <div class="form-group">
+                    <label>昵称</label>
+                    <input type="text" id="edit-nickname" placeholder="输入昵称">
+                </div>
+                <div class="form-group">
+                    <label>手机号</label>
+                    <input type="text" id="edit-phone" placeholder="输入手机号">
+                </div>
+                <div class="form-group">
+                    <label>微信号</label>
+                    <input type="text" id="edit-wechat" placeholder="输入微信号">
+                </div>
+                <div class="form-group">
+                    <label>学校</label>
+                    <input type="text" id="edit-school" placeholder="输入学校名称">
+                </div>
+                <button type="submit" class="btn-submit">💾 保存修改</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== 全部JS内联，零外部依赖 ========== -->
+    <script>
+    (function () {
+        'use strict';
+
+        var API_BASE = '/api';
+        var TOKEN_KEY = 'trade_token';
+        var USER_KEY = 'trade_user';
+        var container = document.getElementById('profile-container');
+
+        // 如果 container 不存在，直接放弃
+        if (!container) return;
+
+        // ====== step 1: 检查登录态 ======
+        var user = null;
+        try {
+            user = JSON.parse(localStorage.getItem(USER_KEY));
+        } catch (e) {}
+
+        if (!user) {
+            container.innerHTML =
+                '<div style="text-align:center;padding:80px 20px;">' +
+                '<div style="font-size:4rem;">🔐</div>' +
+                '<h3 style="margin-top:16px;">请先登录</h3>' +
+                '<p style="color:#999;margin:8px 0 20px;">登录后即可查看个人中心</p>' +
+                '<a href="../index/index.html" style="display:inline-block;background:#FF6B35;color:#fff;padding:10px 32px;border-radius:8px;text-decoration:none;font-size:1.1rem;">← 返回首页登录</a>' +
+                '</div>';
+            return;
+        }
+
+        // ====== step 2: 已登录，加载数据 ======
+        var currentUserData = null;
+        var currentTab = 'products';
+
+        loadProfile();
+
+        // ====== 工具函数 ======
+        function getToken() {
+            return localStorage.getItem(TOKEN_KEY);
+        }
+
+        function logout() {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+        }
+
+        function esc(str) {
+            if (!str) return '';
+            str = String(str);
+            str = str.replace(/&/g, '&amp;');
+            str = str.replace(/</g, '&lt;');
+            str = str.replace(/>/g, '&gt;');
+            str = str.replace(/"/g, '&quot;');
+            str = str.replace(/'/g, '&#39;');
+            return str;
+        }
+
+        async function api(url, opts) {
+            var o = opts || {};
+            var h = { 'Content-Type': 'application/json' };
+            var t = getToken();
+            if (t) h['Authorization'] = 'Bearer ' + t;
+            if (o.headers) {
+                Object.keys(o.headers).forEach(function (k) { h[k] = o.headers[k]; });
+            }
+            var res = await fetch(API_BASE + url, {
+                method: o.method || 'GET',
+                headers: h,
+                body: o.body || undefined
+            });
+            var d = await res.json();
+            if (!res.ok) {
+                var err = new Error(d.error || '请求失败');
+                err.status = res.status;
+                throw err;
+            }
+            return d;
+        }
+
+        async function loadProfile() {
+            try {
+                currentUserData = await api('/users/me');
+                var products = await api('/products/user/' + currentUserData.id);
+                var favorites = await api('/favorites');
+
+                container.innerHTML =
+                    '<div class="profile-header">' +
+                    '<div class="profile-avatar">' + (currentUserData.nickname || currentUserData.username || 'U')[0].toUpperCase() + '</div>' +
+                    '<div>' +
+                    '<div class="profile-name">' + esc(currentUserData.nickname || currentUserData.username) + ' <small>@' + esc(currentUserData.username) + '</small></div>' +
+                    (currentUserData.school ? '<div style="color:#999;font-size:0.9rem;">🏫 ' + esc(currentUserData.school) + '</div>' : '') +
+                    '<div class="profile-stats">' +
+                    '<div class="stat"><div class="num">' + products.length + '</div><div class="label">发布</div></div>' +
+                    '<div class="stat"><div class="num">' + favorites.length + '</div><div class="label">收藏</div></div>' +
+                    '<div class="stat"><div class="num">' + products.filter(function (p) { return p.status === 'on_sale'; }).length + '</div><div class="label">在售</div></div>' +
+                    '</div>' +
+                    '<div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;">' +
+                    '<button class="btn btn-outline" id="edit-profile-btn">✏️ 编辑资料</button>' +
+                    '<button class="btn btn-danger" id="logout-btn">🚪 退出登录</button>' +
+                    '</div>' +
+                    '<a href="../index/index.html" style="display:inline-flex;align-items:center;gap:4px;margin-top:14px;padding:8px 20px;background:#F5F5F5;border-radius:8px;text-decoration:none;color:#555;font-size:0.9rem;transition:all 0.2s;">← 返回商品页</a>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="profile-tabs">' +
+                    '<span class="tab active" data-tab="products">📦 我的发布 (' + products.length + ')</span>' +
+                    '<span class="tab" data-tab="favorites">❤️ 我的收藏 (' + favorites.length + ')</span>' +
+                    '</div>' +
+                    '<div id="tab-content"></div>';
+
+                // Tab切换
+                bindEvents(products, favorites);
+                renderTab('products', products, favorites);
+
+            } catch (err) {
+                console.error('加载失败:', err);
+                container.innerHTML =
+                    '<div style="text-align:center;padding:60px;">' +
+                    '<div style="font-size:3rem;">⚠️</div>' +
+                    '<h3>加载失败</h3>' +
+                    '<p style="color:#999;">' + esc(err.message || '网络异常') + '</p>' +
+                    '<p style="margin-top:16px;">' +
+                    '<a href="javascript:location.reload()" style="color:#FF6B35;margin-right:16px;">🔄 重试</a>' +
+                    '<a href="../index/index.html" style="color:#999;">← 返回首页</a></p>' +
+                    '</div>';
+            }
+        }
+
+        function bindEvents(products, favorites) {
+            container.querySelectorAll('.tab').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    container.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+                    tab.classList.add('active');
+                    currentTab = tab.dataset.tab;
+                    renderTab(currentTab, products, favorites);
+                });
+            });
+
+            var eb = document.getElementById('edit-profile-btn');
+            if (eb) eb.addEventListener('click', function () {
+                var m = document.getElementById('edit-modal');
+                document.getElementById('edit-nickname').value = currentUserData.nickname || '';
+                document.getElementById('edit-phone').value = currentUserData.phone || '';
+                document.getElementById('edit-wechat').value = currentUserData.wechat || '';
+                document.getElementById('edit-school').value = currentUserData.school || '';
+                m.style.display = 'flex';
+            });
+
+            var lb = document.getElementById('logout-btn');
+            if (lb) lb.addEventListener('click', function () {
+                if (confirm('确定要退出登录吗？')) {
+                    logout();
+                    location.href = '../index/index.html';
+                }
+            });
+        }
+
+        function renderTab(tab, products, favorites) {
+            var ct = document.getElementById('tab-content');
+            if (!ct) return;
+
+            if (tab === 'products') {
+                if (products.length === 0) {
+                    ct.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3rem;">📭</div><h3>还没有发布</h3><p><a href="../publish/publish.html" style="color:#FF6B35;">去发布闲置</a></p></div>';
+                    return;
+                }
+                ct.innerHTML =
+                    '<div class="profile-products">' +
+                    products.map(function (p) {
+                        var img = (p.images && p.images.length > 0) ? p.images[0] : '/image/no-image.jpg';
+                        var statusText = p.status === 'on_sale' ? '🟢 在售' : (p.status === 'sold' ? '🔴 已售' : '⚪ 已下架');
+                        return '<div class="profile-product-card" onclick="location.href=\'../detail/detail.html?id=' + p.id + '\'">' +
+                            '<img src="' + img + '" onerror="this.src=\'/image/no-image.jpg\'">' +
+                            '<div class="info"><div class="title">' + esc(p.title) + '</div>' +
+                            '<div class="price">¥' + p.price + '</div>' +
+                            '<div class="status">' + statusText + '</div></div></div>';
+                    }).join('') + '</div>';
+            } else {
+                if (favorites.length === 0) {
+                    ct.innerHTML = '<div style="text-align:center;padding:40px;"><div style="font-size:3rem;">💔</div><h3>还没有收藏</h3><p>去逛逛喜欢的物品吧</p></div>';
+                    return;
+                }
+                ct.innerHTML =
+                    '<div class="profile-products">' +
+                    favorites.map(function (p) {
+                        var img = (p.images && p.images.length > 0) ? p.images[0] : '/image/no-image.jpg';
+                        return '<div class="profile-product-card" onclick="location.href=\'../detail/detail.html?id=' + p.id + '\'">' +
+                            '<img src="' + img + '" onerror="this.src=\'/image/no-image.jpg\'">' +
+                            '<div class="info"><div class="title">' + esc(p.title) + '</div>' +
+                            '<div class="price">¥' + p.price + '</div>' +
+                            '<div class="status">❤️ 已收藏</div></div></div>';
+                    }).join('') + '</div>';
+            }
+        }
+
+        // 编辑资料表单
+        var ef = document.getElementById('edit-profile-form');
+        if (ef) {
+            ef.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var data = {
+                    nickname: document.getElementById('edit-nickname').value.trim(),
+                    phone: document.getElementById('edit-phone').value.trim(),
+                    wechat: document.getElementById('edit-wechat').value.trim(),
+                    school: document.getElementById('edit-school').value.trim()
+                };
+                try {
+                    await api('/users/me', { method: 'PUT', body: JSON.stringify(data) });
+                    alert('资料更新成功');
+                    document.getElementById('edit-modal').style.display = 'none';
+                    loadProfile();
+                } catch (err) {
+                    alert('更新失败：' + err.message);
+                }
+            });
+        }
+
+        // 关闭模态框
+        document.querySelectorAll('[data-close]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var m = btn.closest('.modal-mask');
+                if (m) m.style.display = 'none';
+            });
+        });
+
+    })();
+    </script>
+
+    <!-- 悬浮客服按钮 -->
+    <a href="../chat/chat.html" class="float-kefu-btn" title="智能客服小橘">🤖</a>
+    <style>
+        .float-kefu-btn {
+            position:fixed; bottom:28px; right:28px; z-index:9999;
+            width:56px; height:56px; border-radius:50%;
+            background:linear-gradient(135deg,#FF6B35,#f7931e);
+            color:#fff; font-size:1.6rem; display:flex; align-items:center; justify-content:center;
+            box-shadow:0 4px 16px rgba(255,107,53,0.4); text-decoration:none;
+            animation:kefu-pulse 2s infinite; transition:transform 0.2s;
+        }
+        .float-kefu-btn:hover { transform:scale(1.1); animation:none; }
+        @keyframes kefu-pulse {
+            0%,100%{box-shadow:0 4px 16px rgba(255,107,53,0.4);}
+            50%{box-shadow:0 4px 24px rgba(255,107,53,0.7);}
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心 · 校园二手</title>
+    <link rel="stylesheet" href="../../public/style.css">
+</head>
+<body>
+    <header class="header-wrapper">
+        <a href="../index/index.html" class="logo">🏫 校园二手</a>
+        <div class="right-panel">
+            <a href="../publish/publish.html" class="nav-link publish-btn">🛍️ 发布闲置</a>
+            <a href="../favorites/favorites.html" class="nav-link">💖 收藏</a>
+            <a href="../my/my.html" class="nav-link">🥰 我的</a>
+        </div>
+    </header>
+
+    <div class="profile-container" id="profile-container">
+        <div class="empty-state"><div class="icon">⏳</div><h3>加载中...</h3></div>
+    </div>
+
+    <script type="module" src="../../utils/api.js"></script>
+    <script type="module" src="profile.js"></script>
+</body>
+</html>

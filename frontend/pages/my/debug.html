@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Debug My Page</title></head>
+<body>
+<h3>Debug Console:</h3>
+<pre id="log" style="background:#111;color:#0f0;padding:10px;min-height:300px;"></pre>
+<script type="module">
+    const log = document.getElementById('log');
+    function L(msg) { log.textContent += msg + '\n'; }
+    
+    window.onerror = (msg, src, line, col, err) => {
+        L('GLOBAL ERROR: ' + msg + ' at ' + src + ':' + line);
+    };
+
+    try {
+        L('Testing api.js import...');
+        const api = await import('../../utils/api.js');
+        L('api.js imported OK');
+        L('getMe: ' + typeof api.getMe);
+        L('getUserProducts: ' + typeof api.getUserProducts);
+        L('getFavorites: ' + typeof api.getFavorites);
+        L('updateMe: ' + typeof api.updateMe);
+        L('getCurrentUser: ' + typeof api.getCurrentUser);
+        
+        const user = api.getCurrentUser();
+        L('Current user: ' + JSON.stringify(user));
+        
+        if (user) {
+            L('Token: ' + (api.getToken() ? 'exists (starts with: ' + api.getToken().substring(0,20) + '...)' : 'MISSING'));
+            
+            L('Calling getMe()...');
+            try {
+                const me = await api.getMe();
+                L('getMe() OK: ' + JSON.stringify(me));
+            } catch(e) {
+                L('getMe() FAILED: ' + e.message);
+            }
+        }
+    } catch(e) {
+        L('IMPORT ERROR: ' + e.message);
+        L('Stack: ' + e.stack);
+    }
+
+    try {
+        L('\nTesting escape.js import...');
+        const esc = await import('../../utils/escape.js');
+        L('escape.js imported OK');
+        L('escapeHtml: ' + typeof esc.escapeHtml);
+        L('escapeHtml test: ' + esc.escapeHtml('<script>alert("xss")</script>'));
+    } catch(e) {
+        L('IMPORT ERROR: ' + e.message);
+        L('Stack: ' + e.stack);
+    }
+</script>
+</body>
+</html>

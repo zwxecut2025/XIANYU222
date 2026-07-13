@@ -1,0 +1,22 @@
+# 依赖
+node_modules/
+
+# 环境变量（含密钥）
+.env
+
+# 数据库文件
+*.db
+
+# 用户上传的图片
+backend/uploads/
+
+# 系统文件
+$null
+Thumbs.db
+.DS_Store
+
+# 截图/临时文件
+*.png
+*.jpg
+!frontend/image/*.jpg
+!frontend/image/*.png

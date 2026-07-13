@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发布闲置 · 校园二手</title>
+    <link rel="stylesheet" href="../../public/style.css">
+    <style>
+        .image-upload-area { min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .image-upload-area .icon { font-size: 2rem; }
+        .image-upload-area p { color: var(--text-light); margin: 4px 0; font-size: 0.9rem; }
+        #image-input { display: none; }
+        .image-preview .preview-item .remove { background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 0.7rem; }
+        .image-preview .preview-item .remove:hover { background: var(--danger-color); }
+    </style>
+</head>
+<body>
+    <header class="header-wrapper">
+        <a href="../index/index.html" class="logo">🏫 校园二手</a>
+        <div class="right-panel">
+            <a href="../publish/publish.html" class="nav-link publish-btn">🛍️ 发布闲置</a>
+            <a href="../favorites/favorites.html" class="nav-link">💖 收藏</a>
+            <a href="../my/my.html" class="nav-link">🥰 我的</a>
+        </div>
+    </header>
+
+    <div class="publish-container">
+        <h2 style="margin-bottom:20px;" id="form-title">🛍️ 发布闲置物品</h2>
+        <form id="publish-form">
+            <input type="hidden" id="edit-id">
+            <div class="form-group">
+                <label>标题 <span style="color:var(--danger-color);">*</span></label>
+                <input type="text" id="title" placeholder="输入物品名称，如：二手iPhone 14" required>
+            </div>
+            <div class="form-group">
+                <label>分类</label>
+                <select id="category_id"></select>
+            </div>
+            <div class="form-group">
+                <label>价格（元） <span style="color:var(--danger-color);">*</span></label>
+                <input type="number" id="price" placeholder="0.00" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+                <label>描述</label>
+                <textarea id="description" rows="4" placeholder="详细描述物品状况、使用时间、交易方式等"></textarea>
+            </div>
+            <div class="form-group">
+                <label>上传图片（最多9张）</label>
+                <div class="image-upload-area" id="drop-area">
+                    <div class="icon">🖼️</div>
+                    <p>点击或拖拽上传图片</p>
+                    <p style="font-size:0.75rem;color:#bbb;">支持 JPG / PNG / WEBP，单张不超过5MB</p>
+                    <input type="file" id="image-input" accept="image/*" multiple>
+                </div>
+                <div class="image-preview" id="image-preview"></div>
+                <div class="ai-area" id="ai-area" style="margin-top:12px;">
+                    <button type="button" class="btn" id="ai-recognize-btn" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:8px 20px;">🤖 AI识图 - 自动填写物品名称</button>
+                    <span id="ai-status" style="margin-left:12px;font-size:0.85rem;color:var(--text-light);"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>联系电话</label>
+                <input type="text" id="contact_phone" placeholder="方便买家联系">
+            </div>
+            <div class="form-group">
+                <label>微信号</label>
+                <input type="text" id="contact_wechat" placeholder="选填">
+            </div>
+            <button type="submit" class="btn-submit" id="submit-btn">🛍️ 发布</button>
+            <button type="button" class="btn" onclick="location.href='../index/index.html'" style="margin-top:12px;width:100%;background:#eee;color:#666;">取消</button>
+        </form>
+    </div>
+
+    <script type="module" src="../../utils/api.js"></script>
+    <script type="module" src="publish.js"></script>
+</body>
+</html>
