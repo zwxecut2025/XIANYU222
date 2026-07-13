@@ -172,14 +172,23 @@ export async function recognizeImage(imageUrl) {
     });
 }
 
-// 图片URL处理
+// 图片URL处理：统一将各种路径转为可访问的完整URL
 export function getImageUrl(path) {
-    // 如果 path 已经是完整 URL 就直接返回
-    if (path && path.startsWith('http')) return path;
-    
-    // 否则根据环境拼接
-    const baseUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3008' 
-        : window.location.origin; // 用当前页面的域名
+    if (!path) return '/image/no-image.jpg';
+    // data: 和 blob: 直接返回
+    if (path.startsWith('data:') || path.startsWith('blob:')) return path;
+    // 如果包含 localhost，说明是旧数据残留的绝对路径，提取 path 部分
+    if (path.includes('localhost') || path.includes('127.0.0.1')) {
+        try {
+            const url = new URL(path);
+            path = url.pathname;
+        } catch (e) {
+            // 解析失败就用原值
+        }
+    }
+    // 已经是完整的远程URL（非 localhost），直接返回
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    // 相对路径，拼接当前访问地址
+    const baseUrl = window.location.origin;
     return `${baseUrl}${path}`;
 }

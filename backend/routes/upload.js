@@ -7,16 +7,15 @@ router.post('/image', auth, upload.single('image'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: '请选择图片' });
     }
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3008}`;
-    res.json({ success: true, url: `${baseUrl}/uploads/${req.file.filename}` });
+    // 存相对路径，前端用 getImageUrl 解析
+    res.json({ success: true, url: `/uploads/${req.file.filename}` });
 });
 
 router.post('/images', auth, upload.array('images', 9), (req, res) => {
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: '请选择图片' });
     }
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3008}`;
-    const urls = req.files.map(file => `${baseUrl}/uploads/${file.filename}`);
+    const urls = req.files.map(file => `/uploads/${file.filename}`);
     res.json({ success: true, urls });
 });
 

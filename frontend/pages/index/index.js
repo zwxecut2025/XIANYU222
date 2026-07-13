@@ -1,4 +1,4 @@
-import { getProducts, getCategories, login, register, logout, isLoggedIn, getCurrentUser, getToken } from '../../utils/api.js';
+import { getProducts, getCategories, login, register, logout, isLoggedIn, getCurrentUser, getToken, getImageUrl } from '../../utils/api.js';
 import { escapeHtml } from '../../utils/escape.js';
 
 class App {
@@ -186,7 +186,7 @@ class App {
             return;
         }
         this.container.innerHTML = products.map(p => {
-            const cover = p.cover || '/image/no-image.jpg';
+            const cover = getImageUrl(p.cover);
             const statusMap = { 'on_sale': '', 'sold': '已售出', 'off_shelf': '已下架' };
             const statusClass = p.status === 'sold' ? 'sold' : '';
             return `

@@ -1,4 +1,4 @@
-import { getProductDetail, addFavorite, removeFavorite, checkFavorite, deleteProduct, getCurrentUser } from '../../utils/api.js';
+import { getProductDetail, addFavorite, removeFavorite, checkFavorite, deleteProduct, getCurrentUser, getImageUrl } from '../../utils/api.js';
 import { escapeHtml } from '../../utils/escape.js';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -13,7 +13,7 @@ async function loadDetail() {
         const favCheck = user ? await checkFavorite(productId) : { isFavorite: false };
         let isFavorite = favCheck.isFavorite;
 
-        const images = product.images || [];
+        const images = (product.images || []).map(function(img) { return getImageUrl(img); });
         const cover = images.length > 0 ? images[0] : '/image/no-image.jpg';
 
         const statusMap = {

@@ -1,4 +1,4 @@
-import { getCategories, createProduct, getProductDetail, updateProduct, uploadImages, getCurrentUser, recognizeImage } from '../../utils/api.js';
+import { getCategories, createProduct, getProductDetail, updateProduct, uploadImages, getCurrentUser, recognizeImage, getImageUrl } from '../../utils/api.js';
 import { escapeHtml } from '../../utils/escape.js';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -75,7 +75,7 @@ async function loadEditData() {
 function renderPreview() {
     previewContainer.innerHTML = uploadedImages.map((url, index) => `
         <div class="preview-item">
-            <img src="${url}" onerror="this.src='/image/no-image.jpg'">
+            <img src="${getImageUrl(url)}" onerror="this.src='/image/no-image.jpg'">
             <button class="remove" data-index="${index}">✕</button>
         </div>
     `).join('');
