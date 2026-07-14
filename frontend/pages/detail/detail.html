@@ -11,6 +11,7 @@
         <a href="../index/index.html" class="logo">🏫 校园二手</a>
         <div class="right-panel">
             <a href="../publish/publish.html" class="nav-link publish-btn">🛍️ 发布闲置</a>
+            <a href="../messages/messages.html" class="nav-link">💬 私信</a>
             <a href="../favorites/favorites.html" class="nav-link">💖 收藏</a>
             <a href="../my/my.html" class="nav-link">🥰 我的</a>
         </div>
@@ -20,6 +21,20 @@
         <div class="detail-main" id="detail-main">
             <!-- 动态渲染 -->
         </div>
+
+        <!-- 评论区 -->
+        <div class="comment-section" id="comment-section">
+            <h3 class="comment-title">💬 评论区</h3>
+            <div id="comment-list"></div>
+            <div id="comment-input-box" style="display:none;">
+                <textarea id="comment-input" placeholder="写下你的评论..." rows="3"></textarea>
+                <button id="comment-submit-btn" class="btn btn-primary">发表评论</button>
+            </div>
+            <div id="comment-login-hint" style="display:none;text-align:center;color:var(--text-light);padding:12px;">
+                请<a href="../index/index.html" style="color:var(--primary-color);">登录</a>后发表评论
+            </div>
+        </div>
+
         <button class="back-btn" onclick="history.back()">← 返回</button>
     </div>
 

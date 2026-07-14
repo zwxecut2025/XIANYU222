@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的私信 · 校园二手</title>
+    <link rel="stylesheet" href="../../public/style.css">
+</head>
+<body>
+    <header class="header-wrapper">
+        <a href="../index/index.html" class="logo">🏫 校园二手</a>
+        <div class="right-panel">
+            <a href="../publish/publish.html" class="nav-link publish-btn">🛍️ 发布闲置</a>
+            <a href="../favorites/favorites.html" class="nav-link">💖 收藏</a>
+            <a href="../my/my.html" class="nav-link">🥰 我的</a>
+        </div>
+    </header>
+
+    <div class="messages-container" id="messages-container">
+        <!-- 对话列表 -->
+        <div class="conversation-list" id="conv-list">
+            <h3>💬 私信列表</h3>
+            <div id="conv-items"></div>
+        </div>
+
+        <!-- 聊天窗口 -->
+        <div class="chat-window" id="chat-window">
+            <div class="chat-empty">👈 选择一个对话开始聊天</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { getCurrentUser, getConversations, getMessages, sendMessage, markAsRead, getUserInfo } from '../../utils/api.js';
+
+        const user = getCurrentUser();
+        if (!user) {
+            document.getElementById('messages-container').innerHTML =
+                '<div style="text-align:center;padding:80px;"><div style="font-size:4rem;">🔐</div>' +
+                '<h3>请先登录</h3><p style="color:#999;">登录后即可查看私信</p>' +
+                '<a href="../index/index.html" style="display:inline-block;background:#FF6B35;color:#fff;padding:10px 32px;border-radius:8px;text-decoration:none;margin-top:16px;">← 返回首页登录</a></div>';
+            throw new Error('not logged in');
+        }
+
+        const convItemsEl = document.getElementById('conv-items');
+        const chatWindow = document.getElementById('chat-window');
+        let activePeerId = null;
+        let activePeerName = '';
+        let activeProductId = null;
+        let activeProductTitle = '';
+        let pollingTimer = null;
+
+        // 从 URL 参数获取初始对话目标
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetUserId = urlParams.get('user');
+        const targetProductId = urlParams.get('product');
+        const targetProductTitle = urlParams.get('title');
+
+        function esc(str) {
+            if (!str) return '';
+            str = String(str);
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+
+        async function loadConversations() {
+            try {
+                const res = await getConversations();
+                const convs = res.data || [];
+
+                if (convs.length === 0) {
+                    convItemsEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">暂无私信</div>';
+                } else {
+                    convItemsEl.innerHTML = convs.map(c => `
+                        <div class="conv-item${activePeerId === c.peer_id ? ' active' : ''}" data-peer="${c.peer_id}">
+                            <div class="conv-avatar">${(c.peer_name || '?')[0].toUpperCase()}</div>
+                            <div class="conv-info">
+                                <div class="conv-name">${esc(c.peer_name)}</div>
+                                <div class="conv-preview">${esc(c.last_message || '')}</div>
+                            </div>
+                            <div class="conv-meta">
+                                <div class="conv-time">${new Date(c.created_at).toLocaleDateString()}</div>
+                                ${c.unread_count > 0 ? `<div class="conv-badge">${c.unread_count}</div>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // 点击对话事件
+                convItemsEl.querySelectorAll('.conv-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        openChat(
+                            parseInt(item.dataset.peer),
+                            convs.find(c => c.peer_id === parseInt(item.dataset.peer))?.peer_name || '',
+                            convs.find(c => c.peer_id === parseInt(item.dataset.peer))?.product_id || null,
+                            convs.find(c => c.peer_id === parseInt(item.dataset.peer))?.product_title || ''
+                        );
+                    });
+                });
+
+                // 如果有 URL 参数指定的目标用户，自动打开对话
+                if (targetUserId && !activePeerId) {
+                    const existing = convs.find(c => c.peer_id === parseInt(targetUserId));
+                    const targetName = existing?.peer_name || '用户' + targetUserId;
+                    openChat(parseInt(targetUserId), targetName, targetProductId, decodeURIComponent(targetProductTitle || ''));
+                }
+            } catch (err) {
+                convItemsEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">加载失败</div>';
+            }
+        }
+
+        async function openChat(peerId, peerName, productId, productTitle) {
+            activePeerId = peerId;
+            activePeerName = peerName;
+            activeProductId = productId;
+            activeProductTitle = productTitle;
+
+            // 高亮
+            convItemsEl.querySelectorAll('.conv-item').forEach(el => {
+                el.classList.toggle('active', parseInt(el.dataset.peer) === peerId);
+            });
+
+            // 渲染聊天窗口
+            chatWindow.innerHTML = `
+                <div class="chat-header">
+                    <div class="conv-avatar" style="width:36px;height:36px;font-size:0.85rem;">${(peerName || '?')[0].toUpperCase()}</div>
+                    <span class="peer-name">${esc(peerName)}</span>
+                    ${productTitle ? `<span class="peer-product">📦 <a href="../detail/detail.html?id=${productId}">${esc(productTitle)}</a></span>` : ''}
+                </div>
+                <div class="chat-messages" id="chat-msgs"></div>
+                <div class="chat-input-box">
+                    <textarea id="msg-input" placeholder="输入消息..." rows="1"></textarea>
+                    <button id="msg-send-btn">发送</button>
+                </div>
+            `;
+
+            // 标记已读
+            try { await markAsRead(peerId); } catch (e) {}
+
+            await refreshMessages();
+
+            // 发送按钮
+            document.getElementById('msg-send-btn').addEventListener('click', sendMsg);
+            const msgInput = document.getElementById('msg-input');
+            msgInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMsg();
+                }
+            });
+
+            // 轮询新消息
+            clearInterval(pollingTimer);
+            pollingTimer = setInterval(refreshMessages, 3000);
+        }
+
+        async function refreshMessages() {
+            if (!activePeerId) return;
+            try {
+                const res = await getMessages(activePeerId);
+                const msgs = res.data || [];
+                const msgsEl = document.getElementById('chat-msgs');
+                if (!msgsEl) return;
+
+                msgsEl.innerHTML = msgs.map(m => `
+                    <div class="chat-msg ${m.sender_id === user.id ? 'mine' : 'peer'}">
+                        <div>${esc(m.content)}</div>
+                        <div class="chat-msg-time">${new Date(m.created_at).toLocaleString()}</div>
+                    </div>
+                `).join('');
+
+                msgsEl.scrollTop = msgsEl.scrollHeight;
+
+                // 标记已读
+                try { await markAsRead(activePeerId); } catch (e) {}
+                // 刷新对话列表（更新未读数）
+                loadConversations();
+            } catch (err) {
+                console.error('刷新消息失败', err);
+            }
+        }
+
+        async function sendMsg() {
+            const input = document.getElementById('msg-input');
+            const content = input.value.trim();
+            if (!content || !activePeerId) return;
+
+            try {
+                await sendMessage(activePeerId, activeProductId, content);
+                input.value = '';
+                await refreshMessages();
+            } catch (err) {
+                alert('发送失败：' + err.message);
+            }
+        }
+
+        // 初始化
+        loadConversations();
+    </script>
+</body>
+</html>

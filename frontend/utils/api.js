@@ -192,3 +192,39 @@ export function getImageUrl(path) {
     const baseUrl = window.location.origin;
     return `${baseUrl}${path}`;
 }
+
+// ========== 评论 ==========
+export async function getComments(productId) {
+    return request(`/comments/product/${productId}`);
+}
+
+export async function addComment(productId, content) {
+    return request('/comments', {
+        method: 'POST',
+        body: JSON.stringify({ product_id: productId, content })
+    });
+}
+
+export async function deleteComment(commentId) {
+    return request(`/comments/${commentId}`, { method: 'DELETE' });
+}
+
+// ========== 私信 ==========
+export async function sendMessage(receiverId, productId, content) {
+    return request('/messages', {
+        method: 'POST',
+        body: JSON.stringify({ receiver_id: receiverId, product_id: productId, content })
+    });
+}
+
+export async function getConversations() {
+    return request('/messages/conversations');
+}
+
+export async function getMessages(peerId) {
+    return request(`/messages/${peerId}`);
+}
+
+export async function markAsRead(peerId) {
+    return request(`/messages/read/${peerId}`, { method: 'PUT' });
+}

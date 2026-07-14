@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
 let cachedToken = null;
 let tokenExpireTime = 0;
@@ -49,13 +51,43 @@ function getBaiduToken() {
     });
 }
 
-function imageToBase64(imagePath) {
+// 从本地路径读取图片为 base64
+function localImageToBase64(imagePath) {
     try {
         const buffer = fs.readFileSync(imagePath);
         return buffer.toString('base64');
     } catch (e) {
-        throw new Error('图片读取失败');
+        throw new Error('本地图片读取失败');
     }
+}
+
+// 从远程 URL 下载图片为 base64
+function remoteImageToBase64(imageUrl) {
+    return new Promise((resolve, reject) => {
+        const parsed = url.parse(imageUrl);
+        const client = parsed.protocol === 'https:' ? https : http;
+        const options = {
+            hostname: parsed.hostname,
+            path: parsed.path,
+            method: 'GET',
+            headers: { 'User-Agent': 'Xianyu/1.0' }
+        };
+        client.get(options, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                // 处理重定向
+                return remoteImageToBase64(res.headers.location).then(resolve).catch(reject);
+            }
+            if (res.statusCode !== 200) {
+                return reject(new Error('下载图片失败，状态码: ' + res.statusCode));
+            }
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => {
+                const buffer = Buffer.concat(chunks);
+                resolve(buffer.toString('base64'));
+            });
+        }).on('error', reject);
+    });
 }
 
 router.post('/recognize', async (req, res) => {
@@ -70,23 +102,27 @@ router.post('/recognize', async (req, res) => {
             return res.status(503).json({ error: 'AI识图功能暂未配置，请先设置百度API密钥' });
         }
 
-        // 将图片URL转为本地文件路径
-        let imagePath = imageUrl;
-        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3008}`;
-        if (imageUrl.startsWith(baseUrl)) {
-            // 本地上传的图片，去掉baseUrl前缀
-            imagePath = path.join(__dirname, '..', imageUrl.replace(baseUrl, ''));
-        } else if (imageUrl.startsWith('/uploads/')) {
-            imagePath = path.join(__dirname, '..', imageUrl);
-        } else if (imageUrl.startsWith('http')) {
-            return res.status(400).json({ error: '暂不支持外部URL，请使用本地上传的图片' });
+        // 获取图片 base64：支持本地路径和远程 URL
+        let base64Image;
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            // 远程图片（如 Supabase Storage），下载后转 base64
+            console.log('   🌐 下载远程图片:', imageUrl.substring(0, 80) + '...');
+            base64Image = await remoteImageToBase64(imageUrl);
         } else {
-            imagePath = path.join(__dirname, '..', imageUrl);
+            // 本地图片，读取文件
+            let imagePath = imageUrl;
+            const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3008}`;
+            if (imageUrl.startsWith(baseUrl)) {
+                imagePath = path.join(__dirname, '..', imageUrl.replace(baseUrl, ''));
+            } else if (imageUrl.startsWith('/uploads/')) {
+                imagePath = path.join(__dirname, '..', imageUrl);
+            } else {
+                imagePath = path.join(__dirname, '..', imageUrl);
+            }
+            base64Image = localImageToBase64(imagePath);
         }
 
         const token = await getBaiduToken();
-        const base64Image = imageToBase64(imagePath);
-
         const postData = 'image=' + encodeURIComponent(base64Image);
 
         const result = await new Promise((resolve, reject) => {

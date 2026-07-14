@@ -22,6 +22,8 @@ const favoritesRoutes = require('./routes/favorites');
 const uploadRoutes = require('./routes/upload');
 const chatRoutes = require('./routes/chat');
 const aiRoutes = require('./routes/ai');
+const commentsRoutes = require('./routes/comments');
+const messagesRoutes = require('./routes/messages');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -57,6 +59,8 @@ app.use('/api/favorites', favoritesRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/comments', commentsRoutes);
+app.use('/api/messages', messagesRoutes);
 
 const PORT = process.env.PORT || 3008;
 app.listen(PORT, () => {

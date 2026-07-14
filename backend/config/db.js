@@ -134,6 +134,9 @@ async function initDatabase() {
     }
 
     console.log('✅ 数据库初始化完成（Supabase REST API）');
+
+    // 检查并创建评论表和私信表
+    await ensureTables();
 }
 
 // 工具函数：展平 supabase 关系查询结果
@@ -151,6 +154,53 @@ function flattenProduct(p) {
         images,
         cover: images.length > 0 ? images[0] : null
     };
+}
+
+// 通过 Supabase 管理 API 执行建表 SQL
+async function ensureTables() {
+    // 先检查表是否已存在
+    const { error: checkErr } = await supabase.from('comments').select('id').limit(1);
+    if (!checkErr) return; // 表已存在
+
+    // 表不存在，给出清晰指引
+    const sql = `
+CREATE TABLE IF NOT EXISTS comments (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_product ON comments(product_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(sender_id, receiver_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id, is_read);
+`;
+    const dashboardUrl = 'https://supabase.com/dashboard/project/qqmjustfvwpybwpuxboo/sql/new';
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════╗');
+    console.log('║  ⚠️  需要初始化评论和私信功能                          ║');
+    console.log('║                                                      ║');
+    console.log('║  1. 打开 Supabase 控制台：                            ║');
+    console.log('║     ' + dashboardUrl);
+    console.log('║                                                      ║');
+    console.log('║  2. 粘贴以下 SQL 并执行：                              ║');
+    console.log('╠══════════════════════════════════════════════════════╣');
+    sql.trim().split('\n').forEach(line => {
+        console.log('║  ' + line);
+    });
+    console.log('╚══════════════════════════════════════════════════════╝');
+    console.log('');
 }
 
 module.exports = { supabase, supabaseAdmin, initDatabase, flattenProduct };
