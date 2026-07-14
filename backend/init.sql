@@ -97,3 +97,30 @@ INSERT INTO users (username, password, nickname, role) VALUES
     ('admin', crypt('123456', gen_salt('bf')), '管理员', 'admin'),
     ('seller1', crypt('123456', gen_salt('bf')), '卖家小王', 'user')
 ON CONFLICT (username) DO NOTHING;
+
+-- ========== 评论表 ==========
+-- 支持一级评论 + 楼中楼回复（parent_id 指向父评论）
+CREATE TABLE IF NOT EXISTS comments (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE comments DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_comments_product ON comments(product_id);
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
+
+-- ========== 私信表 ==========
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    is_read INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_messages_users ON messages(sender_id, receiver_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id, is_read);

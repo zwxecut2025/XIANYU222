@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私信 · 校园二手</title>
+    <link rel="stylesheet" href="../../public/style.css">
+    <style>
+        .messages-container {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0;
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            min-height: 70vh;
+        }
+        .conv-list {
+            width: 280px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--border-light);
+            overflow-y: auto;
+        }
+        .conv-list-header {
+            padding: 16px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-dark);
+        }
+        .conv-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f5ebe0;
+            transition: background var(--transition);
+        }
+        .conv-item:hover { background: var(--bg-light); }
+        .conv-item.active { background: var(--primary-light); }
+        .conv-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+        .conv-info { flex: 1; min-width: 0; }
+        .conv-name { font-weight: 600; font-size: 0.9rem; color: var(--text-dark); }
+        .conv-preview {
+            font-size: 0.78rem;
+            color: var(--text-light);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+        .conv-time { font-size: 0.7rem; color: var(--text-light); }
+        .conv-unread {
+            background: var(--danger-color);
+            color: #fff;
+            font-size: 0.7rem;
+            border-radius: 10px;
+            padding: 2px 8px;
+            min-width: 20px;
+            text-align: center;
+        }
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .chat-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-light);
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-dark);
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: var(--bg-light);
+        }
+        .msg-item {
+            display: flex;
+            gap: 8px;
+            max-width: 75%;
+            align-items: flex-end;
+        }
+        .msg-item.mine {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        .msg-bubble {
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .msg-item.mine .msg-bubble {
+            background: var(--primary-gradient);
+            color: #fff;
+            border-bottom-right-radius: 6px;
+        }
+        .msg-item.other .msg-bubble {
+            background: #fff;
+            color: var(--text-dark);
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .msg-time {
+            font-size: 0.68rem;
+            color: var(--text-light);
+            white-space: nowrap;
+        }
+        .msg-item.mine .msg-time { text-align: right; }
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            padding: 14px 16px;
+            border-top: 1px solid var(--border-light);
+            background: #fff;
+        }
+        .chat-input-area textarea {
+            flex: 1;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+        }
+        .chat-input-area textarea:focus {
+            border-color: var(--primary-color);
+        }
+        .chat-placeholder {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+        .empty-conv {
+            padding: 40px;
+            text-align: center;
+            color: var(--text-light);
+        }
+
+        @media (max-width: 768px) {
+            .messages-container { flex-direction: column; min-height: 85vh; }
+            .conv-list { width: 100%; max-height: 180px; border-right: none; border-bottom: 1px solid var(--border-light); }
+            .msg-item { max-width: 90%; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header-wrapper">
+        <a href="../index/index.html" class="logo">🏫 校园二手</a>
+        <div class="right-panel">
+            <a href="../publish/publish.html" class="nav-link publish-btn">🛍️ 发布闲置</a>
+            <a href="../favorites/favorites.html" class="nav-link">💖 收藏</a>
+            <a href="../my/my.html" class="nav-link">🥰 我的</a>
+        </div>
+    </header>
+
+    <div class="messages-container">
+        <!-- 会话列表 -->
+        <div class="conv-list" id="conv-list">
+            <div class="conv-list-header">✉️ 私信</div>
+            <div id="conv-items"></div>
+        </div>
+
+        <!-- 聊天区域 -->
+        <div class="chat-area" id="chat-area">
+            <div class="chat-placeholder" id="chat-placeholder">👈 选择一个会话开始聊天</div>
+            <div class="chat-header" id="chat-header" style="display:none;"></div>
+            <div class="chat-messages" id="chat-messages" style="display:none;"></div>
+            <div class="chat-input-area" id="chat-input-area" style="display:none;">
+                <textarea id="msg-input" placeholder="输入消息..." rows="2" maxlength="2000"></textarea>
+                <button class="btn btn-primary" id="msg-send" style="flex-shrink:0;align-self:flex-end;">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="../../utils/api.js"></script>
+    <script type="module" src="messages.js"></script>
+</body>
+</html>

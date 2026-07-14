@@ -22,9 +22,14 @@ const favoritesRoutes = require('./routes/favorites');
 const uploadRoutes = require('./routes/upload');
 const chatRoutes = require('./routes/chat');
 const aiRoutes = require('./routes/ai');
+const commentsRoutes = require('./routes/comments');
+const messagesRoutes = require('./routes/messages');
 
 const app = express();
 app.set('trust proxy', 1);
+
+// 静态文件服务（前端页面）
+app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 app.use(cors({
     origin: ['http://localhost:3000', 'http://localhost:5500', 'http://localhost:3008', 'https://*.cpolar.cn'],
@@ -34,7 +39,20 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// /uploads 静态文件，404 时返回默认占位图
+const uploadsPath = path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsPath));
+app.use('/uploads', (req, res, next) => {
+    // 静态文件没匹配到，返回默认占位图（data URI SVG）
+    const noImageSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+        <rect width="400" height="300" rx="12" fill="#f0f0f0"/>
+        <text x="200" y="140" text-anchor="middle" font-size="64">🖼️</text>
+        <text x="200" y="200" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#999">图片已丢失</text>
+    </svg>`;
+    res.set('Content-Type', 'image/svg+xml');
+    res.send(noImageSvg);
+});
 
 // 初始化数据库
 initDatabase().then(() => console.log('数据库初始化完成')).catch(err => console.error('数据库初始化失败', err));
@@ -57,6 +75,8 @@ app.use('/api/favorites', favoritesRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/comments', commentsRoutes);
+app.use('/api/messages', messagesRoutes);
 
 const PORT = process.env.PORT || 3008;
 app.listen(PORT, () => {

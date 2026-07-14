@@ -12,6 +12,7 @@
         <div class="right-panel">
             <a href="../publish/publish.html" class="nav-link publish-btn">🛍️ 发布闲置</a>
             <a href="../favorites/favorites.html" class="nav-link">💖 收藏</a>
+            <a href="../messages/messages.html" class="nav-link">✉️ 私信</a>
             <a href="../my/my.html" class="nav-link">🥰 我的</a>
         </div>
     </header>
@@ -20,6 +21,21 @@
         <div class="detail-main" id="detail-main">
             <!-- 动态渲染 -->
         </div>
+
+        <!-- 评论区 -->
+        <div class="comments-section" id="comments-section">
+            <h3 class="comments-title">💬 评论 (<span id="comment-count">0</span>)</h3>
+            <div class="comment-form" id="comment-form-wrap">
+                <textarea id="comment-input" placeholder="写下你的评论..." rows="3" maxlength="1000"></textarea>
+                <button class="btn btn-primary" id="comment-submit">发表评论</button>
+            </div>
+            <div class="comment-login-hint" id="comment-login-hint" style="display:none;">
+                <p>请<a href="javascript:void(0)" onclick="location.href='../index/index.html'">登录</a>后发表评论</p>
+            </div>
+            <div class="comments-list" id="comments-list"></div>
+            <div class="comment-pagination" id="comment-pagination"></div>
+        </div>
+
         <button class="back-btn" onclick="history.back()">← 返回</button>
     </div>
 

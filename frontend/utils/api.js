@@ -172,6 +172,44 @@ export async function recognizeImage(imageUrl) {
     });
 }
 
+// ========== 评论 ==========
+export async function getComments(productId, page = 1, limit = 20) {
+    return request(`/comments/${productId}?page=${page}&limit=${limit}`);
+}
+
+export async function addComment(productId, content, parentId = null) {
+    const body = { content };
+    if (parentId) body.parent_id = parentId;
+    return request(`/comments/${productId}`, {
+        method: 'POST',
+        body: JSON.stringify(body)
+    });
+}
+
+export async function deleteComment(commentId) {
+    return request(`/comments/${commentId}`, { method: 'DELETE' });
+}
+
+// ========== 私信 ==========
+export async function getConversations() {
+    return request('/messages/conversations');
+}
+
+export async function getUnreadCount() {
+    return request('/messages/unread-count');
+}
+
+export async function getMessagesWith(userId, page = 1, limit = 50) {
+    return request(`/messages/with/${userId}?page=${page}&limit=${limit}`);
+}
+
+export async function sendMessage(receiverId, content) {
+    return request('/messages/send', {
+        method: 'POST',
+        body: JSON.stringify({ receiver_id: receiverId, content })
+    });
+}
+
 // 图片URL处理：统一将各种路径转为可访问的完整URL
 export function getImageUrl(path) {
     if (!path) return '/image/no-image.jpg';
@@ -181,14 +219,13 @@ export function getImageUrl(path) {
     if (path.includes('localhost') || path.includes('127.0.0.1')) {
         try {
             const url = new URL(path);
-            path = url.pathname;
+            path = url.pathname + url.search;
         } catch (e) {
             // 解析失败就用原值
         }
     }
     // 已经是完整的远程URL（非 localhost），直接返回
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    // 相对路径，拼接当前访问地址
-    const baseUrl = window.location.origin;
-    return `${baseUrl}${path}`;
+    // 相对路径，拼接当前访问地址（本地/内网穿透均兼容）
+    return `${window.location.origin}${path}`;
 }
