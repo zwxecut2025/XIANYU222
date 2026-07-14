@@ -1,24 +1,5 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-
-// 确保上传目录存在
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// 配置存储
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        cb(null, 'img-' + uniqueSuffix + ext);
-    }
-});
 
 // 文件过滤
 const fileFilter = (req, file, cb) => {
@@ -30,8 +11,9 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
+// 使用内存存储，文件 buffer 直接上传到 Supabase Storage
 const upload = multer({
-    storage: storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: fileFilter
 });

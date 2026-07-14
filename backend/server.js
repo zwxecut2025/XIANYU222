@@ -64,6 +64,11 @@ app.listen(PORT, () => {
     console.log(`   Supabase: ${process.env.SUPABASE_URL}`);
 });
 
+// favicon 占位
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end();
+});
+
 app.get('/', (req, res) => {
     res.redirect('/pages/index/index.html');
 });

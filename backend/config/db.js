@@ -48,16 +48,16 @@ async function initDatabase() {
     const { data: existingCats } = await supabase.from('categories').select('id').limit(1);
     if (!existingCats || existingCats.length === 0) {
         const categories = [
-            { name: '📚 教材教辅', icon: '📚', sort_order: 1 },
-            { name: '💻 数码产品', icon: '💻', sort_order: 2 },
-            { name: '📱 手机平板', icon: '📱', sort_order: 3 },
-            { name: '🎮 游戏娱乐', icon: '🎮', sort_order: 4 },
-            { name: '👕 服饰鞋包', icon: '👕', sort_order: 5 },
-            { name: '🚲 出行工具', icon: '🚲', sort_order: 6 },
-            { name: '🏠 生活用品', icon: '🏠', sort_order: 7 },
-            { name: '🎵 音乐乐器', icon: '🎵', sort_order: 8 },
-            { name: '🏸 运动户外', icon: '🏸', sort_order: 9 },
-            { name: '📦 其他', icon: '📦', sort_order: 10 }
+            { name: '教材教辅', icon: '📚', sort_order: 1 },
+            { name: '数码产品', icon: '💻', sort_order: 2 },
+            { name: '手机平板', icon: '📱', sort_order: 3 },
+            { name: '游戏娱乐', icon: '🎮', sort_order: 4 },
+            { name: '服饰鞋包', icon: '👕', sort_order: 5 },
+            { name: '出行工具', icon: '🚲', sort_order: 6 },
+            { name: '生活用品', icon: '🏠', sort_order: 7 },
+            { name: '音乐乐器', icon: '🎵', sort_order: 8 },
+            { name: '运动户外', icon: '🏸', sort_order: 9 },
+            { name: '其他', icon: '📦', sort_order: 10 }
         ];
         const { error: catErr } = await supabaseAdmin.from('categories').insert(categories);
         if (catErr) {
