@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
+const { Pool } = require('pg');
 require('dotenv').config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -133,15 +134,102 @@ async function initDatabase() {
         }
     }
 
+    // 创建评论和私信表（如果不存在）
+    await ensureTables();
+
     console.log('✅ 数据库初始化完成（Supabase REST API）');
 
     // 检查并创建评论表和私信表
     await ensureTables();
 }
 
+// ---------- 自动建表（评论 & 私信） ----------
+async function ensureTables() {
+    const DATABASE_URL = process.env.DATABASE_URL;
+    if (!DATABASE_URL) {
+        // 没有直连数据库的配置，尝试通过 REST API 检查
+        const { error: cErr } = await supabase.from('comments').select('id').limit(1);
+        if (cErr) {
+            console.warn('⚠️  comments/messages 表未创建，评论和私信功能将不可用');
+            console.warn('   请在 Supabase SQL Editor 中执行 init.sql，或配置 DATABASE_URL 环境变量');
+        }
+        return;
+    }
+
+    try {
+        const pool = new Pool({
+            connectionString: DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+        });
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS comments (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_comments_product ON comments(product_id);
+            CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
+            ALTER TABLE comments DISABLE ROW LEVEL SECURITY;
+
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_messages_users ON messages(sender_id, receiver_id);
+            CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id, is_read);
+            ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+        `);
+        console.log('   📋 comments / messages 表已就绪');
+        await pool.end();
+    } catch (err) {
+        console.warn('⚠️  自动建表失败:', err.message);
+        console.warn('   请在 Supabase SQL Editor 中执行 init.sql');
+    }
+}
+
+// 图片路径标准化：
+// - data: URI → 直接返回
+// - Supabase Storage 完整 URL（https://...supabase.co/...） → 直接返回
+// - 本地 /uploads/ 路径 → 检查文件是否存在，不存在则过滤掉
+const path = require('path');
+const fs = require('fs');
+
+function getUploadsDir() {
+    return path.join(__dirname, '..', 'uploads');
+}
+
+function normalizeImages(imagesJson) {
+    const images = imagesJson ? (typeof imagesJson === 'string' ? (() => { try { return JSON.parse(imagesJson); } catch { return []; } })() : imagesJson) : [];
+    const uploadsDir = getUploadsDir();
+    return images.map(img => {
+        if (!img || img.startsWith('data:')) return img;      // data URI（SVG占位图）
+        // Supabase Storage 完整 URL，直接保留
+        if (img.startsWith('http://') || img.startsWith('https://')) return img;
+        // 本地 /uploads/ 相对路径，检查文件是否存在
+        if (img.startsWith('/')) {
+            const filename = img.replace('/uploads/', '');
+            const filePath = path.join(uploadsDir, filename);
+            if (!fs.existsSync(filePath)) {
+                console.warn('[normalizeImages] 文件不存在，已过滤:', filename);
+                return null;
+            }
+            return img;
+        }
+        return img;
+    }).filter(img => img !== null);  // 移除不存在的文件
+}
+
 // 工具函数：展平 supabase 关系查询结果
 function flattenProduct(p) {
-    const images = typeof p.images === 'string' ? (() => { try { return JSON.parse(p.images); } catch { return []; } })() : (p.images || []);
+    const images = normalizeImages(p.images);
     return {
         ...p,
         username: p.users?.username,
