@@ -674,10 +674,13 @@ i.fas, i.far {
 .comment-author { font-weight: 600; color: var(--text-dark); font-size: 0.95rem; }
 .comment-time { font-size: 0.8rem; color: var(--text-light); }
 .comment-text { color: var(--text-gray); line-height: 1.6; font-size: 0.95rem; }
+.comment-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
 .comment-delete-btn {
-    position: absolute;
-    top: 14px;
-    right: 0;
     background: none;
     border: none;
     cursor: pointer;

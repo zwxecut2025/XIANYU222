@@ -101,7 +101,8 @@ async function loadDetail() {
         const dmBtn = document.getElementById('dm-btn');
         if (dmBtn) {
             dmBtn.addEventListener('click', () => {
-                location.href = `../messages/messages.html?user=${product.user_id}&product=${productId}&title=${encodeURIComponent(product.title)}`;
+                const sellerName = product.nickname || product.username || '';
+                location.href = `../messages/messages.html?user=${product.user_id}&product=${productId}&title=${encodeURIComponent(product.title)}&name=${encodeURIComponent(sellerName)}`;
             });
         }
 
@@ -154,10 +155,12 @@ async function loadComments() {
                 <div class="comment-body">
                     <div class="comment-header">
                         <span class="comment-author">${escapeHtml(c.nickname || c.username || '用户')}</span>
-                        <span class="comment-time">${new Date(c.created_at).toLocaleString()}</span>
+                        <span class="comment-meta">
+                            <span class="comment-time">${new Date(c.created_at).toLocaleString()}</span>
+                            ${isMine ? '<button class="comment-delete-btn" data-del="'+c.id+'">🗑️</button>' : ''}
+                        </span>
                     </div>
                     <div class="comment-text">${escapeHtml(c.content)}</div>
-                    ${isMine ? '<button class="comment-delete-btn" data-del="'+c.id+'">🗑️</button>' : ''}
                 </div>
             </div>`;
         }).join('');

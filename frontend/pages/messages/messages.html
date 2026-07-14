@@ -54,6 +54,7 @@
         const targetUserId = urlParams.get('user');
         const targetProductId = urlParams.get('product');
         const targetProductTitle = urlParams.get('title');
+        const targetUserName = urlParams.get('name');
 
         function esc(str) {
             if (!str) return '';
@@ -98,9 +99,17 @@
 
                 // 如果有 URL 参数指定的目标用户，自动打开对话
                 if (targetUserId && !activePeerId) {
-                    const existing = convs.find(c => c.peer_id === parseInt(targetUserId));
-                    const targetName = existing?.peer_name || '用户' + targetUserId;
-                    openChat(parseInt(targetUserId), targetName, targetProductId, decodeURIComponent(targetProductTitle || ''));
+                    const uid = parseInt(targetUserId);
+                    const existing = convs.find(c => c.peer_id === uid);
+                    let targetName = existing?.peer_name || decodeURIComponent(targetUserName || '');
+                    // 如果名字还是拿不到，通过 API 查询
+                    if (!targetName) {
+                        try {
+                            const infoRes = await getUserInfo(uid);
+                            targetName = infoRes.data?.nickname || infoRes.data?.username || '用户' + uid;
+                        } catch (e) { targetName = '用户' + uid; }
+                    }
+                    openChat(uid, targetName, targetProductId, decodeURIComponent(targetProductTitle || ''));
                 }
             } catch (err) {
                 convItemsEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">加载失败</div>';
